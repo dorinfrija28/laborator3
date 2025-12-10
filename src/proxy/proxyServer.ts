@@ -450,8 +450,12 @@ const server = http.createServer((req, res) => {
 });
 
 // Start server
-server.listen(PROXY_PORT, () => {
+// Bind to 0.0.0.0 to accept connections from any interface (required for Railway/cloud)
+const HOST = process.env.HOST || '0.0.0.0';
+
+server.listen(PROXY_PORT, HOST, () => {
     logger.info('Reverse Proxy Server started', {
+        host: HOST,
         port: PROXY_PORT,
         dwServers: DW_SERVERS,
         cacheTTL: `${CACHE_TTL}s`,

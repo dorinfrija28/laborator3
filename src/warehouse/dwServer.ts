@@ -65,13 +65,44 @@ app.get('/update/employees', getUpdateEmployees);
 // Error handling middleware
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    logger.error('Unhandled error', { error: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('Unhandled error', {
+        error: err.message,
+        stack: err.stack,
+        name: err.name,
+    });
+    res.status(500).json({
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    logger.error('Unhandled promise rejection', {
+        reason: reason?.message || String(reason),
+        stack: reason?.stack,
+    });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error: Error) => {
+    logger.error('Uncaught exception', {
+        error: error.message,
+        stack: error.stack,
+    });
+    // Don't exit in production - let Railway handle it
+    if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+    }
 });
 
 // Start server
-app.listen(port, () => {
+// Bind to 0.0.0.0 to accept connections from any interface (required for Railway/cloud)
+const host = process.env.HOST || '0.0.0.0';
+
+app.listen(port, host, () => {
     logger.info(`Data Warehouse Server ${serverId} started`, {
+        host,
         port,
         serverId,
         endpoints: [
