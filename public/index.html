@@ -465,18 +465,25 @@
                 window.currentRequest.abort();
             }
 
+            // Log the URL being used for debugging
+            console.log('Fetching from:', `${PROXY_URL}/employees?format=${currentFormat}`);
+
             try {
                 // Create abort controller for timeout
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
                 const response = await fetch(`${PROXY_URL}/employees?format=${currentFormat}`, {
-                    signal: controller.signal
+                    signal: controller.signal,
+                    mode: 'cors', // Explicitly enable CORS
+                    credentials: 'omit', // Don't send credentials
                 });
 
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Response error:', response.status, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
@@ -506,12 +513,24 @@
                     container.innerHTML = '<div class="loading">No employees found</div>';
                 }
             } catch (error) {
+                console.error('Fetch error details:', {
+                    name: error.name,
+                    message: error.message,
+                    url: `${PROXY_URL}/employees?format=${currentFormat}`,
+                    proxyUrl: PROXY_URL,
+                    currentOrigin: window.location.origin,
+                });
+
+                let errorMessage = 'Error loading employees';
                 if (error.name === 'AbortError') {
-                    container.innerHTML = '<div class="message error show">Request timeout - please try again</div>';
+                    errorMessage = 'Request timeout - please try again';
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage = `Network error: Cannot connect to ${PROXY_URL}. Check if the proxy server is running and accessible.`;
                 } else {
-                    container.innerHTML = `<div class="message error show">Error loading employees: ${error.message}</div>`;
+                    errorMessage = `Error: ${error.message}`;
                 }
-                console.error('Error:', error);
+
+                container.innerHTML = `<div class="message error show">${errorMessage}</div>`;
             }
         }
 

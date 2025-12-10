@@ -354,9 +354,11 @@ function serveStaticFile(req: http.IncomingMessage, res: http.ServerResponse, fi
     const normalizedPath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
     const fullPath = path.join(process.cwd(), 'public', normalizedPath);
 
+    logger.debug('Serving static file', { filePath, fullPath });
+
     fs.readFile(fullPath, (err, data) => {
         if (err) {
-            logger.debug('Static file not found', { filePath, error: err.message });
+            logger.warn('Static file not found', { filePath, fullPath, error: err.message });
             addCORSHeaders(res);
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'File not found' }));
@@ -384,7 +386,9 @@ function serveStaticFile(req: http.IncomingMessage, res: http.ServerResponse, fi
         addCORSHeaders(res);
         res.writeHead(200, {
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=3600', // Cache static files for 1 hour
+            'Cache-Control': 'no-cache, no-store, must-revalidate', // Don't cache HTML to see updates
+            'Pragma': 'no-cache',
+            'Expires': '0',
         });
         res.end(data);
     });
@@ -406,7 +410,7 @@ async function handleRequestWithMetrics(
         return;
     }
 
-    // Handle CORS preflight for all routes
+    // Handle CORS preflight for all routes (before other handlers)
     if (req.method === 'OPTIONS') {
         addCORSHeaders(res);
         res.writeHead(200);
