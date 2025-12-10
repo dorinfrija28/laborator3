@@ -13,17 +13,21 @@ import { logger } from '../../shared/logger';
  * GET /employees - Retrieve all employees with pagination
  * Query params: offset, limit, format
  */
-export function getAllEmployees(req: Request, res: Response): void {
+export async function getAllEmployees(req: Request, res: Response): Promise<void> {
     try {
         const query = parseQuery(req.url || '');
         const offset = parseInt(query.offset || '0', 10);
         const limit = parseInt(query.limit || '100', 10);
         const format = getResponseFormat(req, query);
 
-        const employees = employeeService.getAll(offset, limit);
+        const [employees, total] = await Promise.all([
+            employeeService.getAll(offset, limit),
+            employeeService.getCount(),
+        ]);
+
         const response = {
             data: employees,
-            total: employeeService.getCount(),
+            total,
             offset,
             limit,
         };
@@ -42,7 +46,7 @@ export function getAllEmployees(req: Request, res: Response): void {
  * GET /employees/:id - Retrieve a single employee by ID
  * Query params: format
  */
-export function getEmployeeById(req: Request, res: Response): void {
+export async function getEmployeeById(req: Request, res: Response): Promise<void> {
     try {
         const id = parseInt(req.params.id, 10);
         if (isNaN(id)) {
@@ -53,7 +57,7 @@ export function getEmployeeById(req: Request, res: Response): void {
         const query = parseQuery(req.url || '');
         const format = getResponseFormat(req, query);
 
-        const employee = employeeService.getById(id);
+        const employee = await employeeService.getById(id);
         if (!employee) {
             res.status(404).json({ error: 'Employee not found' });
             return;
@@ -83,7 +87,7 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
             return;
         }
 
-        const employee = employeeService.create({
+        const employee = await employeeService.create({
             firstName,
             lastName,
             position,
@@ -102,7 +106,7 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
 /**
  * PUT /employees/:id - Update an existing employee
  */
-export function updateEmployee(req: Request, res: Response): void {
+export async function updateEmployee(req: Request, res: Response): Promise<void> {
     try {
         const id = parseInt(req.params.id, 10);
         if (isNaN(id)) {
@@ -111,7 +115,7 @@ export function updateEmployee(req: Request, res: Response): void {
         }
 
         const updateData = req.body;
-        const employee = employeeService.update(id, updateData);
+        const employee = await employeeService.update(id, updateData);
 
         if (!employee) {
             res.status(404).json({ error: 'Employee not found' });
@@ -130,7 +134,7 @@ export function updateEmployee(req: Request, res: Response): void {
 /**
  * DELETE /employees/:id - Delete an employee
  */
-export function deleteEmployee(req: Request, res: Response): void {
+export async function deleteEmployee(req: Request, res: Response): Promise<void> {
     try {
         const id = parseInt(req.params.id, 10);
         if (isNaN(id)) {
@@ -138,7 +142,7 @@ export function deleteEmployee(req: Request, res: Response): void {
             return;
         }
 
-        const deleted = employeeService.delete(id);
+        const deleted = await employeeService.delete(id);
         if (!deleted) {
             res.status(404).json({ error: 'Employee not found' });
             return;
@@ -157,15 +161,19 @@ export function deleteEmployee(req: Request, res: Response): void {
  * GET /update/employees - Optional PULL-style endpoint for updates polling
  * Returns all employees (useful for synchronization scenarios)
  */
-export function getUpdateEmployees(req: Request, res: Response): void {
+export async function getUpdateEmployees(req: Request, res: Response): Promise<void> {
     try {
         const query = parseQuery(req.url || '');
         const format = getResponseFormat(req, query);
 
-        const employees = employeeService.getAll();
+        const [employees, total] = await Promise.all([
+            employeeService.getAll(),
+            employeeService.getCount(),
+        ]);
+
         const response = {
             data: employees,
-            total: employeeService.getCount(),
+            total,
             timestamp: new Date().toISOString(),
         };
 

@@ -14,6 +14,7 @@
 
 import express, { Express } from 'express';
 import { logger } from '../shared/logger';
+import { initializeDatabase, testConnection, closePool } from './database/db';
 import {
     getAllEmployees,
     getEmployeeById,
@@ -120,58 +121,84 @@ process.on('uncaughtException', (error: Error) => {
     }
 });
 
-// Start server
-// Bind to 0.0.0.0 to accept connections from any interface (required for Railway/cloud)
-const host = process.env.HOST || '0.0.0.0';
-
-// Validate port
-if (isNaN(port) || port <= 0 || port > 65535) {
-    logger.error('Invalid port', { port, envPort: process.env.PORT });
-    process.exit(1);
-}
-
-const server = app.listen(port, host, () => {
-    logger.info(`Data Warehouse Server ${serverId} started successfully`, {
-        host,
-        port,
-        serverId,
-        nodeEnv: process.env.NODE_ENV,
-        endpoints: [
-            'GET /health',
-            'GET /employees',
-            'GET /employees/:id',
-            'POST /employees',
-            'PUT /employees/:id',
-            'DELETE /employees/:id',
-            'GET /update/employees',
-        ],
-    });
-});
-
-// Handle server errors
-server.on('error', (error: NodeJS.ErrnoException) => {
-    logger.error('Server error', {
-        error: error.message,
-        code: error.code,
-        port,
-        host,
-    });
-
-    if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is already in use`);
-        process.exit(1);
-    } else if (error.code === 'EACCES') {
-        logger.error(`Permission denied to bind to port ${port}`);
-        process.exit(1);
-    }
-});
+// Server initialization moved to startServer() function below
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully...');
-    server.close(() => {
+    server.close(async () => {
         logger.info('Server closed');
+        await closePool();
         process.exit(0);
     });
 });
+
+// Initialize database connection and start server
+let server: any = null;
+
+async function startServer() {
+    try {
+        // Test database connection
+        const dbConnected = await testConnection();
+        if (!dbConnected) {
+            logger.error('Database connection failed. Server will not start.');
+            process.exit(1);
+        }
+
+        // Initialize database schema
+        await initializeDatabase();
+        logger.info('Database initialized and ready');
+
+        // Start HTTP server
+        const host = process.env.HOST || '0.0.0.0';
+
+        // Validate port
+        if (isNaN(port) || port <= 0 || port > 65535) {
+            logger.error('Invalid port', { port, envPort: process.env.PORT });
+            process.exit(1);
+        }
+
+        server = app.listen(port, host, () => {
+            logger.info(`Data Warehouse Server ${serverId} started successfully`, {
+                host,
+                port,
+                serverId,
+                nodeEnv: process.env.NODE_ENV,
+                endpoints: [
+                    'GET /health',
+                    'GET /employees',
+                    'GET /employees/:id',
+                    'POST /employees',
+                    'PUT /employees/:id',
+                    'DELETE /employees/:id',
+                    'GET /update/employees',
+                ],
+            });
+        });
+
+        // Handle server errors
+        server.on('error', (error: NodeJS.ErrnoException) => {
+            logger.error('Server error', {
+                error: error.message,
+                code: error.code,
+                port,
+                host,
+            });
+
+            if (error.code === 'EADDRINUSE') {
+                logger.error(`Port ${port} is already in use`);
+                process.exit(1);
+            } else if (error.code === 'EACCES') {
+                logger.error(`Permission denied to bind to port ${port}`);
+                process.exit(1);
+            }
+        });
+    } catch (error) {
+        logger.error('Failed to start server', { error: (error as Error).message });
+        process.exit(1);
+    }
+}
+
+// Start the server
+startServer();
 
