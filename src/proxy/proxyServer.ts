@@ -108,9 +108,23 @@ async function forwardRequest(
     });
 
     // Prepare request options
-    // Remove host header to avoid conflicts
-    const headers = { ...req.headers };
-    delete headers.host;
+    // Remove headers that shouldn't be forwarded
+    const headers: Record<string, string> = {};
+    const skipHeaders = ['host', 'connection', 'content-length', 'transfer-encoding'];
+
+    Object.keys(req.headers).forEach((key) => {
+        if (!skipHeaders.includes(key.toLowerCase())) {
+            const value = req.headers[key];
+            if (value) {
+                headers[key] = Array.isArray(value) ? value[0] : String(value);
+            }
+        }
+    });
+
+    // Set proper content-type for POST/PUT requests
+    if ((req.method === 'POST' || req.method === 'PUT') && !headers['content-type']) {
+        headers['content-type'] = 'application/json';
+    }
 
     const requestOptions: any = {
         method: req.method,
@@ -142,16 +156,43 @@ async function forwardRequest(
             server: dwServer,
             statusCode: response.status,
             responseTime: `${responseTime}ms`,
+            url: fullUrl,
         });
+
+        // Log error responses for debugging
+        if (response.status >= 400) {
+            logger.warn('DW server error response', {
+                server: dwServer,
+                status: response.status,
+                url: fullUrl,
+                responseData: typeof response.data === 'string'
+                    ? response.data.substring(0, 200)
+                    : JSON.stringify(response.data).substring(0, 200),
+            });
+        }
 
         return { response, server: dwServer };
     } catch (error: any) {
-        logger.error('Error forwarding request', {
+        logger.error('Error forwarding request to DW', {
             server: dwServer,
+            url: fullUrl,
             error: error.message,
+            code: error.code,
+            response: error.response?.status,
+            stack: error.stack?.substring(0, 500),
         });
         throw error;
     }
+}
+
+/**
+ * Add CORS headers to response
+ */
+function addCORSHeaders(res: http.ServerResponse): void {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
 }
 
 /**
@@ -166,7 +207,25 @@ async function handleRequest(
     const path = parsedUrl.path || '/';
     const method = req.method || 'GET';
 
+    // Handle CORS preflight
+    if (method === 'OPTIONS') {
+        addCORSHeaders(res);
+        res.writeHead(200);
+        res.end();
+        return;
+    }
+
     logger.info('Incoming request', { method, path });
+
+    // Don't forward static file requests to DW servers
+    const staticExtensions = ['.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.css', '.js', '.woff', '.woff2', '.ttf', '.eot'];
+    const isStaticFile = staticExtensions.some(ext => path.toLowerCase().endsWith(ext));
+
+    if (isStaticFile && method === 'GET') {
+        // Try to serve static file, or return 404
+        serveStaticFile(req, res, path.substring(1)); // Remove leading /
+        return;
+    }
 
     // Check cache for GET requests
     if (method === 'GET') {
@@ -198,6 +257,11 @@ async function handleRequest(
         const nodeHeaders: Record<string, string | string[]> = {};
         Object.keys(dwResponse.headers).forEach((key) => {
             const value = dwResponse.headers[key];
+            // Skip certain headers that shouldn't be forwarded
+            const skipHeaders = ['host', 'connection', 'transfer-encoding'];
+            if (skipHeaders.includes(key.toLowerCase())) {
+                return;
+            }
             if (value !== undefined) {
                 if (Array.isArray(value)) {
                     nodeHeaders[key] = value;
@@ -206,6 +270,36 @@ async function handleRequest(
                 }
             }
         });
+
+        // Add CORS headers
+        addCORSHeaders(res);
+
+        // Handle errors from DW servers
+        if (dwResponse.status >= 400) {
+            logger.warn('DW server returned error', {
+                status: dwResponse.status,
+                server: dwServer,
+                path,
+            });
+
+            // Try to parse error response
+            let errorBody = dwResponse.data;
+            try {
+                if (typeof errorBody === 'string') {
+                    const parsed = JSON.parse(errorBody);
+                    errorBody = JSON.stringify(parsed);
+                }
+            } catch (e) {
+                // Keep original error body
+            }
+
+            res.writeHead(dwResponse.status, {
+                ...nodeHeaders,
+                'Content-Type': 'application/json',
+            });
+            res.end(errorBody || JSON.stringify({ error: 'Request failed' }));
+            return;
+        }
 
         // Cache GET responses (response.data is already a string due to responseType: 'text')
         if (method === 'GET' && dwResponse.status === 200) {
@@ -231,9 +325,19 @@ async function handleRequest(
             server: dwServer,
         });
     } catch (error: any) {
-        logger.error('Error handling request', { error: error.message });
+        logger.error('Error handling request', {
+            error: error.message,
+            stack: error.stack,
+            path,
+            method,
+        });
+
+        addCORSHeaders(res);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Internal server error' }));
+        res.end(JSON.stringify({
+            error: 'Internal server error',
+            message: error.message || 'Unknown error',
+        }));
     }
 }
 
@@ -241,29 +345,47 @@ async function handleRequest(
  * Serve static files (for web interface)
  */
 function serveStaticFile(req: http.IncomingMessage, res: http.ServerResponse, filePath: string): void {
-    const fullPath = path.join(process.cwd(), 'public', filePath);
+    // Normalize file path
+    if (filePath === '' || filePath === '/') {
+        filePath = 'index.html';
+    }
+
+    // Security: prevent directory traversal
+    const normalizedPath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
+    const fullPath = path.join(process.cwd(), 'public', normalizedPath);
 
     fs.readFile(fullPath, (err, data) => {
         if (err) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end('File not found');
+            logger.debug('Static file not found', { filePath, error: err.message });
+            addCORSHeaders(res);
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'File not found' }));
             return;
         }
 
         const ext = path.extname(filePath).toLowerCase();
         const contentTypes: Record<string, string> = {
-            '.html': 'text/html',
-            '.css': 'text/css',
-            '.js': 'application/javascript',
-            '.json': 'application/json',
+            '.html': 'text/html; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
             '.png': 'image/png',
             '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
             '.gif': 'image/gif',
             '.svg': 'image/svg+xml',
+            '.ico': 'image/x-icon',
+            '.woff': 'font/woff',
+            '.woff2': 'font/woff2',
+            '.ttf': 'font/ttf',
         };
 
         const contentType = contentTypes[ext] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': contentType });
+        addCORSHeaders(res);
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=3600', // Cache static files for 1 hour
+        });
         res.end(data);
     });
 }
@@ -281,6 +403,14 @@ async function handleRequestWithMetrics(
     // Handle static files (web interface)
     if (pathname === '/' || pathname === '/index.html') {
         serveStaticFile(req, res, 'index.html');
+        return;
+    }
+
+    // Handle CORS preflight for all routes
+    if (req.method === 'OPTIONS') {
+        addCORSHeaders(res);
+        res.writeHead(200);
+        res.end();
         return;
     }
 
