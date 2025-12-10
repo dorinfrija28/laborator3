@@ -247,7 +247,7 @@
         <p class="subtitle">Web Proxy Testing Interface - Distributed Systems Lab</p>
 
         <div class="proxy-info">
-            <strong>Proxy Server:</strong> <span id="proxyUrl">http://localhost:8080</span>
+            <strong>Proxy Server:</strong> <span id="proxyUrl">Loading...</span>
         </div>
 
         <div id="message" class="message"></div>
@@ -308,8 +308,17 @@
     </div>
 
     <script>
-        const PROXY_URL = 'http://localhost:8080';
+        // Auto-detect proxy URL (works for both local and Railway)
+        const PROXY_URL = window.location.origin || 'http://localhost:8080';
         let currentFormat = 'json';
+
+        // Update proxy URL display
+        document.addEventListener('DOMContentLoaded', () => {
+            const proxyUrlEl = document.getElementById('proxyUrl');
+            if (proxyUrlEl) {
+                proxyUrlEl.textContent = PROXY_URL;
+            }
+        });
 
         // Show message
         function showMessage(text, type = 'success') {
