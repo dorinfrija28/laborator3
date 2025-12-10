@@ -25,17 +25,32 @@ import {
 
 // Parse command line arguments for port and server ID
 // Also check environment variables (for Railway/cloud deployment)
+// Railway provides PORT automatically, but we can override with --port argument
 const args = process.argv.slice(2);
 let port = parseInt(process.env.PORT || '3001', 10);
 let serverId = process.env.SERVER_ID || 'dw1';
 
+// Command line arguments override environment variables
 args.forEach((arg: string, index: number) => {
     if (arg === '--port' && args[index + 1]) {
-        port = parseInt(args[index + 1], 10);
+        const argPort = parseInt(args[index + 1], 10);
+        if (!isNaN(argPort)) {
+            port = argPort;
+        }
     }
     if (arg === '--server-id' && args[index + 1]) {
         serverId = args[index + 1];
     }
+});
+
+// Log configuration for debugging
+logger.info('DW Server configuration', {
+    port,
+    serverId,
+    envPort: process.env.PORT,
+    envServerId: process.env.SERVER_ID,
+    nodeEnv: process.env.NODE_ENV,
+    args: process.argv.slice(2),
 });
 
 const app: Express = express();
@@ -45,11 +60,20 @@ app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        server: serverId,
-        timestamp: new Date().toISOString(),
-    });
+    try {
+        res.json({
+            status: 'ok',
+            server: serverId,
+            port: port,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error: any) {
+        logger.error('Error in health check', { error: error.message });
+        res.status(500).json({
+            error: 'Health check failed',
+            message: error.message,
+        });
+    }
 });
 
 // Employee CRUD routes
@@ -100,11 +124,18 @@ process.on('uncaughtException', (error: Error) => {
 // Bind to 0.0.0.0 to accept connections from any interface (required for Railway/cloud)
 const host = process.env.HOST || '0.0.0.0';
 
-app.listen(port, host, () => {
-    logger.info(`Data Warehouse Server ${serverId} started`, {
+// Validate port
+if (isNaN(port) || port <= 0 || port > 65535) {
+    logger.error('Invalid port', { port, envPort: process.env.PORT });
+    process.exit(1);
+}
+
+const server = app.listen(port, host, () => {
+    logger.info(`Data Warehouse Server ${serverId} started successfully`, {
         host,
         port,
         serverId,
+        nodeEnv: process.env.NODE_ENV,
         endpoints: [
             'GET /health',
             'GET /employees',
@@ -114,6 +145,33 @@ app.listen(port, host, () => {
             'DELETE /employees/:id',
             'GET /update/employees',
         ],
+    });
+});
+
+// Handle server errors
+server.on('error', (error: NodeJS.ErrnoException) => {
+    logger.error('Server error', {
+        error: error.message,
+        code: error.code,
+        port,
+        host,
+    });
+
+    if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${port} is already in use`);
+        process.exit(1);
+    } else if (error.code === 'EACCES') {
+        logger.error(`Permission denied to bind to port ${port}`);
+        process.exit(1);
+    }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+        logger.info('Server closed');
+        process.exit(0);
     });
 });
 

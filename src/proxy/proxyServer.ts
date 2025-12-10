@@ -453,18 +453,43 @@ const server = http.createServer((req, res) => {
 // Bind to 0.0.0.0 to accept connections from any interface (required for Railway/cloud)
 const HOST = process.env.HOST || '0.0.0.0';
 
+// Validate port
+if (isNaN(PROXY_PORT) || PROXY_PORT <= 0 || PROXY_PORT > 65535) {
+    logger.error('Invalid proxy port', { port: PROXY_PORT, envPort: process.env.PORT, envProxyPort: process.env.PROXY_PORT });
+    process.exit(1);
+}
+
 server.listen(PROXY_PORT, HOST, () => {
-    logger.info('Reverse Proxy Server started', {
+    logger.info('Reverse Proxy Server started successfully', {
         host: HOST,
         port: PROXY_PORT,
         dwServers: DW_SERVERS,
         cacheTTL: `${CACHE_TTL}s`,
+        nodeEnv: process.env.NODE_ENV,
         endpoints: [
             'GET / - Web interface',
             'All routes forwarded to DW servers',
             'GET /metrics - Proxy metrics'
         ],
     });
+});
+
+// Handle server errors
+server.on('error', (error: NodeJS.ErrnoException) => {
+    logger.error('Proxy server error', {
+        error: error.message,
+        code: error.code,
+        port: PROXY_PORT,
+        host: HOST,
+    });
+
+    if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${PROXY_PORT} is already in use`);
+        process.exit(1);
+    } else if (error.code === 'EACCES') {
+        logger.error(`Permission denied to bind to port ${PROXY_PORT}`);
+        process.exit(1);
+    }
 });
 
 // Graceful shutdown
