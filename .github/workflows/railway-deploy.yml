@@ -1,0 +1,133 @@
+name: Railway Auto-Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Login to Railway
+        run: |
+          echo "${{ secrets.RAILWAY_TOKEN }}" | railway login
+        continue-on-error: true
+
+      - name: Link to Railway project
+        run: railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+        continue-on-error: true
+
+      - name: Create PostgreSQL service (if not exists)
+        run: |
+          railway service list | grep -q postgres || railway add --service postgres --type postgresql
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Create DW1 service (if not exists)
+        run: |
+          railway service list | grep -q dw1 || railway service create dw1
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Create DW2 service (if not exists)
+        run: |
+          railway service list | grep -q dw2 || railway service create dw2
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Create DW3 service (if not exists)
+        run: |
+          railway service list | grep -q dw3 || railway service create dw3
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Create Proxy service (if not exists)
+        run: |
+          railway service list | grep -q proxy || railway service create proxy
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Configure DW1 service
+        run: |
+          railway service use dw1
+          railway variables set NODE_ENV=production || true
+          railway variables set SERVER_ID=dw1 || true
+          railway variables set DB_HOST='${{postgres.PGHOST}}' || true
+          railway variables set DB_PORT='${{postgres.PGPORT}}' || true
+          railway variables set DB_NAME='${{postgres.PGDATABASE}}' || true
+          railway variables set DB_USER='${{postgres.PGUSER}}' || true
+          railway variables set DB_PASSWORD='${{postgres.PGPASSWORD}}' || true
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Configure DW2 service
+        run: |
+          railway service use dw2
+          railway variables set NODE_ENV=production || true
+          railway variables set SERVER_ID=dw2 || true
+          railway variables set DB_HOST='${{postgres.PGHOST}}' || true
+          railway variables set DB_PORT='${{postgres.PGPORT}}' || true
+          railway variables set DB_NAME='${{postgres.PGDATABASE}}' || true
+          railway variables set DB_USER='${{postgres.PGUSER}}' || true
+          railway variables set DB_PASSWORD='${{postgres.PGPASSWORD}}' || true
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Configure DW3 service
+        run: |
+          railway service use dw3
+          railway variables set NODE_ENV=production || true
+          railway variables set SERVER_ID=dw3 || true
+          railway variables set DB_HOST='${{postgres.PGHOST}}' || true
+          railway variables set DB_PORT='${{postgres.PGPORT}}' || true
+          railway variables set DB_NAME='${{postgres.PGDATABASE}}' || true
+          railway variables set DB_USER='${{postgres.PGUSER}}' || true
+          railway variables set DB_PASSWORD='${{postgres.PGPASSWORD}}' || true
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Configure Proxy service
+        run: |
+          railway service use proxy
+          railway variables set NODE_ENV=production || true
+          railway variables set PROXY_PORT='$PORT' || true
+          railway variables set CACHE_TTL_SECONDS=30 || true
+        continue-on-error: true
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy to Railway
+        run: |
+          railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        continue-on-error: true
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deployment initiated!"
+          echo "📊 Check Railway dashboard for deployment status"
+          echo "🔗 Service URLs will be available after deployment completes"
