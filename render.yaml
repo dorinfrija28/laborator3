@@ -1,0 +1,51 @@
+services:
+  # Data Warehouse Server 1
+  - type: web
+    name: dw1
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/warehouse/dwServer.js --port $PORT --server-id dw1
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # Data Warehouse Server 2
+  - type: web
+    name: dw2
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/warehouse/dwServer.js --port $PORT --server-id dw2
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # Data Warehouse Server 3
+  - type: web
+    name: dw3
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/warehouse/dwServer.js --port $PORT --server-id dw3
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # Reverse Proxy Server
+  - type: web
+    name: proxy
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/proxy/proxyServer.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PROXY_PORT
+        value: 8080
+      - key: CACHE_TTL_SECONDS
+        value: 30
+      # Update these URLs after deployment
+      - key: DW_SERVERS
+        value: https://dw1.onrender.com,https://dw2.onrender.com,https://dw3.onrender.com

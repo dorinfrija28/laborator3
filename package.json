@@ -1,0 +1,42 @@
+{
+    "name": "web-proxy-distributed-systems",
+    "version": "1.0.0",
+    "description": "Web proxy with caching and load balancing for distributed systems lab",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "dev:dw1": "ts-node-dev --respawn --transpile-only src/warehouse/dwServer.ts --port 3001 --server-id dw1",
+        "dev:dw2": "ts-node-dev --respawn --transpile-only src/warehouse/dwServer.ts --port 3002 --server-id dw2",
+        "dev:dw3": "ts-node-dev --respawn --transpile-only src/warehouse/dwServer.ts --port 3003 --server-id dw3",
+        "dev:proxy": "ts-node-dev --respawn --transpile-only src/proxy/proxyServer.ts",
+        "start:dw1": "node dist/warehouse/dwServer.js --port 3001 --server-id dw1",
+        "start:dw2": "node dist/warehouse/dwServer.js --port 3002 --server-id dw2",
+        "start:proxy": "node dist/proxy/proxyServer.js",
+        "docker:build": "docker-compose build",
+        "docker:up": "docker-compose up -d",
+        "docker:down": "docker-compose down",
+        "docker:logs": "docker-compose logs -f",
+        "test": "echo \"Run manual tests with curl commands (see README)\" && exit 0"
+    },
+    "keywords": [
+        "proxy",
+        "load-balancing",
+        "caching",
+        "distributed-systems"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "express": "^4.18.2",
+        "axios": "^1.6.2",
+        "dotenv": "^16.3.1",
+        "xml2js": "^0.6.2"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^20.10.5",
+        "@types/xml2js": "^0.4.14",
+        "typescript": "^5.3.3",
+        "ts-node-dev": "^2.0.0"
+    }
+}

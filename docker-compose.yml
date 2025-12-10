@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  # Data Warehouse Server 1
+  dw1:
+    build:
+      context: .
+      dockerfile: Dockerfile.dw
+    container_name: dw1
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    command:
+      [
+        "node",
+        "dist/warehouse/dwServer.js",
+        "--port",
+        "3001",
+        "--server-id",
+        "dw1",
+      ]
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+  # Data Warehouse Server 2
+  dw2:
+    build:
+      context: .
+      dockerfile: Dockerfile.dw
+    container_name: dw2
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+    command:
+      [
+        "node",
+        "dist/warehouse/dwServer.js",
+        "--port",
+        "3002",
+        "--server-id",
+        "dw2",
+      ]
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+  # Data Warehouse Server 3
+  dw3:
+    build:
+      context: .
+      dockerfile: Dockerfile.dw
+    container_name: dw3
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+    command:
+      [
+        "node",
+        "dist/warehouse/dwServer.js",
+        "--port",
+        "3003",
+        "--server-id",
+        "dw3",
+      ]
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+  # Reverse Proxy Server
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxy
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PROXY_PORT=8080
+      - DW_SERVERS=http://dw1:3001,http://dw2:3002,http://dw3:3003
+      - CACHE_TTL_SECONDS=30
+    depends_on:
+      - dw1
+      - dw2
+      - dw3
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    driver: bridge

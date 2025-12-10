@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management - Web Proxy Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .form-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .employees-section {
+            margin-top: 30px;
+        }
+
+        .employees-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .format-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .proxy-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .proxy-info strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>👥 Employee Management System</h1>
+        <p class="subtitle">Web Proxy Testing Interface - Distributed Systems Lab</p>
+
+        <div class="proxy-info">
+            <strong>Proxy Server:</strong> <span id="proxyUrl">http://localhost:8080</span>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Create/Update Form -->
+        <div class="form-section">
+            <h2 id="formTitle">Create New Employee</h2>
+            <form id="employeeForm">
+                <input type="hidden" id="employeeId" value="">
+
+                <div class="form-group">
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="position">Position *</label>
+                    <input type="text" id="position" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="salary">Salary *</label>
+                    <input type="number" id="salary" required min="0">
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn-primary" id="submitBtn">Create Employee</button>
+                    <button type="button" class="btn-secondary" id="cancelBtn" style="display: none;"
+                        onclick="resetForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Employees List -->
+        <div class="employees-section">
+            <h2>Employees List</h2>
+
+            <div class="controls">
+                <button class="btn-info" onclick="loadEmployees()">🔄 Refresh</button>
+                <div class="format-selector">
+                    <label>Format:</label>
+                    <select id="formatSelect" onchange="loadEmployees()">
+                        <option value="json">JSON</option>
+                        <option value="xml">XML</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="employeesContainer">
+                <div class="loading">Loading employees...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PROXY_URL = 'http://localhost:8080';
+        let currentFormat = 'json';
+
+        // Show message
+        function showMessage(text, type = 'success') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type} show`;
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, 5000);
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('employeeForm').reset();
+            document.getElementById('employeeId').value = '';
+            document.getElementById('formTitle').textContent = 'Create New Employee';
+            document.getElementById('submitBtn').textContent = 'Create Employee';
+            document.getElementById('cancelBtn').style.display = 'none';
+        }
+
+        // Fast XML parser - optimized for performance
+        function parseXML(xmlString) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+
+            // Check for parsing errors
+            const parseError = xmlDoc.querySelector('parsererror');
+            if (parseError) {
+                throw new Error('XML parsing error: ' + parseError.textContent);
+            }
+
+            // Fast conversion - optimized for xml2js structure
+            function xmlToObject(node) {
+                if (!node || node.nodeType !== 1) return null;
+
+                const result = {};
+                const children = node.childNodes;
+                const childCount = children.length;
+
+                // Fast path for leaf nodes
+                if (childCount === 0) {
+                    return node.textContent || '';
+                }
+
+                // Fast path for single text child
+                if (childCount === 1 && children[0].nodeType === 3) {
+                    return children[0].textContent.trim();
+                }
+
+                // Process children
+                for (let i = 0; i < childCount; i++) {
+                    const child = children[i];
+                    if (child.nodeType === 1) {
+                        const childName = child.nodeName;
+                        const childValue = xmlToObject(child);
+
+                        if (childValue !== null && childValue !== undefined) {
+                            // Handle arrays (multiple elements with same name)
+                            if (result[childName]) {
+                                if (!Array.isArray(result[childName])) {
+                                    result[childName] = [result[childName]];
+                                }
+                                result[childName].push(childValue);
+                            } else {
+                                result[childName] = childValue;
+                            }
+                        }
+                    }
+                }
+
+                return Object.keys(result).length > 0 ? result : (node.textContent || '');
+            }
+
+            const root = xmlDoc.documentElement;
+            return xmlToObject(root) || {};
+        }
+
+        // Fast XML data extraction - optimized
+        function extractEmployeesFromXML(parsed) {
+            // xml2js structure: <response><data><items><item>...</item></items></data></response>
+            // Fast path extraction
+            let employees = [];
+
+            try {
+                // Most common structure
+                if (parsed.response?.data?.items?.item) {
+                    const items = parsed.response.data.items.item;
+                    employees = Array.isArray(items) ? items : [items];
+                }
+                // Alternative structure
+                else if (parsed.data?.items?.item) {
+                    const items = parsed.data.items.item;
+                    employees = Array.isArray(items) ? items : [items];
+                }
+                // Direct array
+                else if (Array.isArray(parsed.data)) {
+                    employees = parsed.data;
+                }
+                // Single item
+                else if (parsed.data && typeof parsed.data === 'object') {
+                    employees = [parsed.data];
+                }
+
+                // Fast normalization - only if needed
+                if (employees.length > 0 && typeof employees[0] === 'object') {
+                    employees = employees.map(emp => {
+                        if (!emp || typeof emp !== 'object') return emp;
+
+                        // Quick check if normalization needed
+                        const needsFlattening = Object.values(emp).some(v =>
+                            v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0
+                        );
+
+                        if (!needsFlattening) return emp;
+
+                        // Flatten nested objects
+                        const normalized = {};
+                        for (const key in emp) {
+                            const value = emp[key];
+                            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                                Object.assign(normalized, value);
+                            } else {
+                                normalized[key] = value;
+                            }
+                        }
+                        return normalized;
+                    });
+                }
+            } catch (e) {
+                console.warn('XML extraction warning:', e);
+            }
+
+            return employees;
+        }
+
+        // Load employees - optimized with timeout and better error handling
+        async function loadEmployees() {
+            currentFormat = document.getElementById('formatSelect').value;
+            const container = document.getElementById('employeesContainer');
+            container.innerHTML = '<div class="loading">Loading employees...</div>';
+
+            // Abort previous request if still pending
+            if (window.currentRequest) {
+                window.currentRequest.abort();
+            }
+
+            try {
+                // Create abort controller for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+                const response = await fetch(`${PROXY_URL}/employees?format=${currentFormat}`, {
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                let data;
+                if (currentFormat === 'xml') {
+                    // Parse XML response
+                    const xmlText = await response.text();
+
+                    try {
+                        const parsed = parseXML(xmlText);
+                        const employees = extractEmployeesFromXML(parsed);
+                        data = { data: employees };
+                    } catch (parseError) {
+                        console.error('XML Parse Error:', parseError);
+                        showMessage(`XML parsing error: ${parseError.message}`, 'error');
+                        container.innerHTML = '<div class="loading">Failed to parse XML response</div>';
+                        return;
+                    }
+                } else {
+                    // Parse JSON response
+                    data = await response.json();
+                }
+
+                if (data && data.data && Array.isArray(data.data)) {
+                    displayEmployees(data.data);
+                } else {
+                    container.innerHTML = '<div class="loading">No employees found</div>';
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    container.innerHTML = '<div class="message error show">Request timeout - please try again</div>';
+                } else {
+                    container.innerHTML = `<div class="message error show">Error loading employees: ${error.message}</div>`;
+                }
+                console.error('Error:', error);
+            }
+        }
+
+        // Display employees in table
+        function displayEmployees(employees) {
+            const container = document.getElementById('employeesContainer');
+
+            if (employees.length === 0) {
+                container.innerHTML = '<div class="loading">No employees found</div>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Position</th>
+                            <th>Salary</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            employees.forEach(emp => {
+                html += `
+                    <tr>
+                        <td>${emp.id}</td>
+                        <td>${emp.firstName}</td>
+                        <td>${emp.lastName}</td>
+                        <td>${emp.position}</td>
+                        <td>$${emp.salary.toLocaleString()}</td>
+                        <td class="actions">
+                            <button class="btn-primary" onclick="editEmployee(${emp.id})">Edit</button>
+                            <button class="btn-danger" onclick="deleteEmployee(${emp.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Edit employee
+        async function editEmployee(id) {
+            try {
+                const response = await fetch(`${PROXY_URL}/employees/${id}?format=json`);
+                const data = await response.json();
+
+                if (data.data) {
+                    const emp = data.data;
+                    document.getElementById('employeeId').value = emp.id;
+                    document.getElementById('firstName').value = emp.firstName;
+                    document.getElementById('lastName').value = emp.lastName;
+                    document.getElementById('position').value = emp.position;
+                    document.getElementById('salary').value = emp.salary;
+                    document.getElementById('formTitle').textContent = 'Edit Employee';
+                    document.getElementById('submitBtn').textContent = 'Update Employee';
+                    document.getElementById('cancelBtn').style.display = 'inline-block';
+
+                    // Scroll to form
+                    document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+                }
+            } catch (error) {
+                showMessage(`Error loading employee: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Delete employee
+        async function deleteEmployee(id) {
+            if (!confirm('Are you sure you want to delete this employee?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${PROXY_URL}/employees/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showMessage('Employee deleted successfully');
+                    loadEmployees();
+                } else {
+                    const data = await response.json();
+                    showMessage(`Error: ${data.error || 'Failed to delete employee'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error deleting employee: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('employeeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('employeeId').value;
+            const employee = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                position: document.getElementById('position').value,
+                salary: parseFloat(document.getElementById('salary').value)
+            };
+
+            try {
+                let response;
+                if (id) {
+                    // Update
+                    response = await fetch(`${PROXY_URL}/employees/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(employee)
+                    });
+                } else {
+                    // Create
+                    response = await fetch(`${PROXY_URL}/employees`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(employee)
+                    });
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showMessage(id ? 'Employee updated successfully' : 'Employee created successfully');
+                    resetForm();
+                    loadEmployees();
+                } else {
+                    const errorData = await response.json();
+                    showMessage(`Error: ${errorData.error || 'Operation failed'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        // Load employees on page load
+        loadEmployees();
+    </script>
+</body>
+
+</html>
